@@ -1,0 +1,22 @@
+{
+  "name": "wearelaradev/dto",
+  "description": "Abstract Dto",
+  "type": "package",
+  "require": {
+    "php": ">=8.2.0"
+  },
+  "license": "mit",
+  "authors": [
+    {
+      "name": "Stollpy",
+      "email": "florian@laradev.ca",
+      "homepage": "https://laradev.ca"
+    }
+  ],
+  "minimum-stability": "dev",
+  "autoload": {
+    "psr-4": {
+      "Laradev\\Dto\\": "src/"
+    }
+  }
+}
