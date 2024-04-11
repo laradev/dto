@@ -5,6 +5,8 @@
  * (c) Darras Florian florian@laradev.ca
  */
 
+namespace Laradev\Dto;
+
 interface DtoInterface
 {
     public function setData(array $data): self;

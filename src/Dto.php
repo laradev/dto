@@ -5,6 +5,8 @@
  * (c) Darras Florian florian@laradev.ca
  */
 
+namespace Laradev\Dto;
+
 abstract class Dto implements DtoInterface
 {
     public function setData(array $data): self
