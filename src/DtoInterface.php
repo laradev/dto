@@ -10,4 +10,6 @@ namespace Laradev\Dto;
 interface DtoInterface
 {
     public function setData(array $data): self;
+    public function toArray(): array;
+    public function toJson(): string;
 }

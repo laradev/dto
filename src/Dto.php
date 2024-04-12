@@ -24,4 +24,11 @@ abstract class Dto implements DtoInterface
 
         return $this;
     }
+
+    abstract public function toArray(): array;
+
+    public function toJson(): string
+    {
+        return json_encode($this->toArray());
+    }
 }
