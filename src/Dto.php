@@ -50,6 +50,10 @@ abstract class Dto implements DtoInterface
         $class = (string) $type;
         $ref = new \ReflectionClass($class);
 
+        if (is_object($data) && $data::class === $class) {
+            return $data;
+        }
+
         if ($ref->isEnum()) {
             return $class::tryFrom($data);
         }
