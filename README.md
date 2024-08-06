@@ -49,7 +49,7 @@ class UserDto extends Dto
     }
 }
 
-$user = (new UserDto)->setData([
+$user = UserDto::create([
     "password" => "Test1234",
     "email" => "fake@fake.com"
 ]);
@@ -110,7 +110,7 @@ class UserDto extends Dto
     }
 }
 
-$user = (new UserDto)->setData([
+$user = UserDto::create([
     "password" => "Test1234",
     "email" => "fake@fake.com",
     "profile" => [
@@ -126,10 +126,22 @@ echo "{$user->profile->firstname} {$user->profile->lastname}" // John Doe
 ## Available methods
 ```php
 /**
- * This method sets the object's properties from an array of untyped data. 
+ * This method sets the object's properties from an array or another object. 
  * It uses reflection to detect object properties and initializes them if possible.
  */
-setData(array $data): self
+static create(array $data): self
+
+/**
+ * This method sets the object's properties from an array. 
+ * It uses reflection to detect object properties and initializes them if possible.
+ */
+fromArray(array $data): self
+
+/**
+ * This method sets the object's properties from another object. 
+ * It uses reflection to detect object properties and initializes them if possible.
+ */
+fromObject(array $data): self
 
 /**
  * This abstract method must be implemented in each child class to convert the object into an array.
@@ -140,6 +152,11 @@ toArray(): array
  * This method converts the object into JSON by calling toArray() and encoding the result in JSON.
  */
 toJson(): string
+
+/**
+ * This method clone the current dto 
+ */
+clone(): self
 
 /**
  * This method returns an array of property names that have been initialized via setData.
