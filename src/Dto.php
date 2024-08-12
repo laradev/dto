@@ -25,16 +25,6 @@ abstract class Dto implements DtoInterface
         return (new static(...$args))->fromObject($this);
     }
 
-    /**
-     * @deprecated Please use fromArray() method
-     * @param array $data
-     * @return $this
-     */
-    public function setData(array $data): self
-    {
-        return $this->fromArray($data);
-    }
-
     public function fromArray(array $data): self
     {
         $ref = new \ReflectionClass($this);
@@ -44,7 +34,20 @@ abstract class Dto implements DtoInterface
                 continue;
             }
 
-            $value = $this->extractValueFromType($property->getType(), $data[$property->getName()]);
+            $value = null;
+
+            if ($property->getType() instanceof \ReflectionUnionType){
+                foreach ($property->getType()->getTypes() as $type) {
+                    try {
+                        $value = $this->extractValueFromType($type, $data[$property->getName()]);
+                    } catch (\LogicException $e) {
+                        continue;
+                    }
+                }
+            } else {
+                $value = $this->extractValueFromType($property->getType(), $data[$property->getName()]);
+            }
+
             $formattedProperty = ucfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $property->getName()))));
             $setter = "set{$formattedProperty}";
             $adder = "add{$formattedProperty}";
@@ -67,34 +70,46 @@ abstract class Dto implements DtoInterface
 
     public function fromObject(object $object): self
     {
-        $reflectionObject = new \ReflectionClass($object);
-        $reflectionClass = new \ReflectionClass($this);
+        $from = new \ReflectionClass($object);
+        $target = new \ReflectionClass($this);
 
-        foreach ($reflectionObject->getProperties() as $reflectionObjectProperty) {
-            foreach ($reflectionClass->getProperties() as $reflectionClassProperty) {
-                if (!$reflectionObjectProperty->isInitialized($object)) {
+        foreach ($from->getProperties() as $fromProperty) {
+            if (!$fromProperty->isInitialized($object)) {
+                continue;
+            }
+
+            foreach ($target->getProperties() as $targetProperty) {
+                if ($targetProperty->getName() !== $fromProperty->getName()) {
                     continue;
                 }
 
-                if ($reflectionClassProperty->getName() === $reflectionObjectProperty->getName()) {
-                    $value = null;
+                $value = null;
 
-                    if ($reflectionObject->hasMethod($getters = 'get'.ucfirst($reflectionObjectProperty->getName()))) {
-                        $value = $object->{$getters}();
-                    } else if ($reflectionObjectProperty->isPublic()) {
-                        $value = $reflectionObjectProperty->getValue($object);
-                    }
-
-                    $value = $this->extractValueFromType($reflectionClassProperty->getType(), $value);
-
-                    if ($reflectionClass->hasMethod($setters = 'set'.ucfirst($reflectionClassProperty->getName()))) {
-                        $this->{$setters}($value);
-                    } elseif ($reflectionClassProperty->isPublic()) {
-                        $this->{$reflectionClassProperty->getName()} = $value;
-                    }
-
-                    $this->initialized_properties[] = $reflectionObjectProperty->getName();
+                if ($from->hasMethod($getters = 'get'.ucfirst($fromProperty->getName()))) {
+                    $value = $object->{$getters}();
+                } else if ($fromProperty->isPublic()) {
+                    $value = $fromProperty->getValue($object);
                 }
+
+                if ($targetProperty->getType() instanceof \ReflectionUnionType){
+                    foreach ($targetProperty->getType()->getTypes() as $type) {
+                        try {
+                            $value = $this->extractValueFromType($type, $value);
+                        } catch (\LogicException $e) {
+                            continue;
+                        }
+                    }
+                } else {
+                    $value = $this->extractValueFromType($targetProperty->getType(), $value);
+                }
+
+                if ($target->hasMethod($setters = 'set'.ucfirst($targetProperty->getName()))) {
+                    $this->{$setters}($value);
+                } elseif ($targetProperty->isPublic()) {
+                    $this->{$targetProperty->getName()} = $value;
+                }
+
+                $this->initialized_properties[] = $fromProperty->getName();
             }
         }
 
@@ -130,47 +145,48 @@ abstract class Dto implements DtoInterface
             return $data;
         }
 
-        $ref = new \ReflectionClass($class);
+        $targetRef = new \ReflectionClass($class);
 
-        if ($ref->isEnum()) {
+        if ($targetRef->isEnum()) {
             return $class::tryFrom($data);
         }
 
-        if (!is_array($data)) {
+        if (!is_array($data) && !is_object($data)) {
             return $data;
         }
 
-        if (in_array(DtoInterface::class, array_keys($ref->getInterfaces()))) {
-            if (is_array($data)) {
-                return (new $class())->fromArray($data);
-            } else {
-                return (new $class())->fromObject($data);
-            }
+        if (in_array(DtoInterface::class, array_keys($targetRef->getInterfaces()))) {
+            return $class::create($data);
         }
 
-        $constructor = $ref->getConstructor();
+        $constructor = $targetRef->getConstructor();
 
         if (null !== $constructor && count($constructor->getParameters()) > 0) {
             $params = [];
 
-            foreach ($constructor->getParameters() as $key => $param) {
-                try {
-                    if (is_array($data) && isset($data[$param->getName()])) {
+            if (is_array($data)) {
+                foreach ($constructor->getParameters() as $key => $param) {
+                    if (isset($data[$param->getName()])) {
                         $params[$key] = $data[$param->getName()];
-                    }  else {
+                    }
+                }
+            } else {
+                $fromRef = new \ReflectionClass($data);
+                foreach ($constructor->getParameters() as $key => $param) {
+                    try {
                         // exception if not found
-                        $property = $ref->getProperty($param->getName());
+                        $fromProperty = $fromRef->getProperty($param->getName());
 
-                        if ($property->isPublic()) {
+                        if ($fromProperty->isPublic()) {
                             $params[$key] = $data->{$param->getName()};
-                        } elseif ($ref->hasMethod($getter = 'get'.ucfirst($param->getName()))) {
+                        } elseif ($fromRef->hasMethod($getter = 'get'.ucfirst($param->getName()))) {
                             $params[$key] = $data->{$getter}();
-                        } elseif ($ref->hasMethod($getter = $param->getName())) {
+                        } elseif ($fromRef->hasMethod($getter = $param->getName())) {
                             $params[$key] = $data->{$getter}();
                         }
+                    } catch (\ReflectionException $exception) {
+                        continue;
                     }
-                } catch (\ReflectionException $exception) {
-                    continue;
                 }
             }
 
