@@ -11,7 +11,7 @@ abstract class Dto implements DtoInterface
 {
     protected array $initialized_properties = [];
 
-    public static function create(array|object $data, ...$arg): self
+    public static function create(array|object $data, ...$arg): static
     {
         if (is_array($data)) {
             return (new static(...$arg))->fromArray($data);
@@ -20,12 +20,12 @@ abstract class Dto implements DtoInterface
         }
     }
 
-    public function clone(...$args): self
+    public function clone(...$args): static
     {
         return (new static(...$args))->fromObject($this);
     }
 
-    public function fromArray(array $data): self
+    public function fromArray(array $data): static
     {
         $ref = new \ReflectionClass($this);
 
@@ -68,7 +68,7 @@ abstract class Dto implements DtoInterface
         return $this;
     }
 
-    public function fromObject(object $object): self
+    public function fromObject(object $object): static
     {
         $from = new \ReflectionClass($object);
         $target = new \ReflectionClass($this);
